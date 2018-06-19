@@ -1,0 +1,61 @@
+import subprocess, os, timeit
+import cmd, getpass, telnetlib, sys
+import time
+ 
+ 
+from netaddr import iter_iprange
+starttime = timeit.default_timer()
+scanname = 'scan'
+ 
+firstip = raw_input("Which subnet address would you like to start with ? Please type as follow 192.168.1.1\n")
+lastip = raw_input("Which subnet address would you like to start with ? Please type as follow 192.168.2.255\n")
+iplist = list(iter_iprange(firstip, lastip))
+hostlist = open(scanname + " -hostlist.txt", "w")
+hostlist.write('list of active hosts\n')
+hostlist.write("~~~~~~~~~~~~~~~~~\n")
+results = []
+livehost = []
+i = 0
+ 
+now = time.localtime()
+file_name = "%s-%s-%s_%s-%s.txt" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min)
+f = open ( file_name, 'w')
+ 
+ipsplitlists = [iplist[x:x+1000] for x in xrange(0, len(iplist), 1000)]
+with open(os.devnull, "wb") as limbo:
+    for splitlist in ipsplitlists:
+        for ip in splitlist:
+            ip = str(ip)
+            command = 'ping -n 1 -w 200 ' + ip
+            results.append(subprocess.Popen(command, stdout=limbo, stderr=limbo))
+ 
+        for result in results:
+            s = result.wait()
+            if not s:
+                ip = str(iplist[i])
+                hostlist.write(ip + '\n')
+                livehost.append(ip)
+            i += 1
+            results = []
+hostlist.close()
+runtime = timeit.default_timer() - starttime
+print "runtime: " + str(runtime)
+print "done\n"
+ 
+print ('livehosts = \n')
+print livehost
+ 
+ 
+for x in livehost :
+    print x
+    cmd = ('showmount -e ' + x)
+    try:
+        out = subprocess.check_output(str(cmd), shell=True)
+   
+        print out
+        file_result = open(file_name, 'a')
+        file_result = f.write(out)
+    except subprocess.CalledProcessError as e:
+        file_result = open(file_name, 'a')
+        file_result = f.write(x + '- Did not find any open NFS installed\n')  
+f.close()
